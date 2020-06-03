@@ -1,0 +1,72 @@
+###########
+# BUILDER #
+###########
+
+#pull official base image (python and linux alpine)
+FROM ubuntu:20.04 as builder
+
+WORKDIR /usr/src/app
+
+#set envormoental valiables
+#This prevents python from wirtinc pyc files to disc
+ENV PYTHONDONTWRITEBYTECODE 1
+#prevents python from byffering stdout and stderr
+ENV PYTHONUNBUFFERED 1
+
+#set timesone
+
+ENV TZ=America/Vancouver
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+#install python
+RUN apt-get update -y && apt-get install -y python3.8 python3-pip python3-dev musl-dev
+# postgresql postgresql-contrib nginx
+
+RUN pip3 install --upgrade pip
+RUN pip3 install flake8
+COPY . /usr/src/app/
+# RUN flake8 --ignore=E501,F401 .
+
+# install dependencies
+COPY ./requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
+
+
+#########
+# FINAL #
+#########
+FROM ubuntu:20.04
+
+# create directory for the app user
+RUN mkdir -p /home/app
+
+# create the app user
+RUN groupadd app && useradd -g app app
+
+# create the appropriate directories
+ENV HOME=/home/app
+ENV APP_HOME=/home/app/web
+RUN mkdir $APP_HOME
+WORKDIR $APP_HOME
+
+# install dependencies
+RUN apt-get update -y && apt-get install -y python3.8 python3-pip libpq-dev netcat
+COPY --from=builder /usr/src/app/wheels /wheels
+COPY --from=builder /usr/src/app/requirements.txt .
+RUN pip3 install --upgrade pip
+RUN pip3 install --no-cache /wheels/*
+
+# copy entrypoint-prod.sh
+# COPY ./entrypoint.prod.sh $APP_HOME
+
+# copy project
+COPY . $APP_HOME
+
+# chown all the files to the app user
+RUN chown -R app:app $APP_HOME
+
+# change to the app user
+USER app
+
+# run entrypoint.prod.sh
+ENTRYPOINT ["/home/app/web/entrypoint.prod.sh"]
