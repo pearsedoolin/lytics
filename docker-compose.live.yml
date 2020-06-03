@@ -21,7 +21,7 @@ services:
     nginx:
         build:
             context: ./nginx
-            dockerfile: Dockerfile.live.prod
+            dockerfile: Dockerfile.live
         volumes:
             - ./frontend/build:/frontend/build
         ports:
