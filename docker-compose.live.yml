@@ -1,23 +1,23 @@
 version: '3.8'
 
 services:
-    # web:
-    #     build:
-    #         context: ./app
-    #         dockerfile: Dockerfile.prod
-    #     command: gunicorn djangoreactproject.wsgi:application --bind 0.0.0.0:8000
-    #     expose:
-    #         - 8000
-    #     env_file:
-    #         - ./.env.prod
-    #     depends_on:
-    #         - db
-    # db:
-    #     image: postgres:12.0-alpine
-    #     volumes:
-    #     - postgres_data:/var/lib/postgresql/data/
-    #     env_file:
-    #         - ./.env.prod.db
+    web:
+        build:
+            context: ./app
+            dockerfile: Dockerfile.prod
+        command: gunicorn djangoreactproject.wsgi:application --bind 0.0.0.0:8000
+        expose:
+            - 8000
+        env_file:
+            - ./.env.prod
+        depends_on:
+            - db
+    db:
+        image: postgres:12.0-alpine
+        volumes:
+        - postgres_data:/var/lib/postgresql/data/
+        env_file:
+            - ./.env.prod.db
     nginx:
         build:
             context: ./nginx
@@ -25,32 +25,32 @@ services:
         ports:
             - 80:80
             - 443:443
-        # depends_on:
-        #     - db
+        depends_on:
+            - db
         volumes:
             - ./frontend/build:/frontend/build
             - ./certbot/www:/var/www/certbot
             - ./certbot/conf:/etc/letsencrypt
             - ./certbot/dhparam:/etc/ssl/certs
-    certbot:
-        image: certbot/certbot
-        volumes:
-            - ./certbot/www:/var/www/certbot
-            - ./certbot/conf:/etc/letsencrypt
-        depends_on: 
-            - nginx
-
-        command: certonly --webroot -w /var/www/certbot --email pearsedoolin@gmail.com --agree-tos --no-eff-email --force-renewal -d www.lytics.ca -d lytics.ca
-
-    # frontend:
-    #     build:
-    #         context: ./frontend
-    #         dockerfile: Dockerfile.prod
+    # certbot:
+    #     image: certbot/certbot
     #     volumes:
-    #         - ./frontend/build:/app/frontend/build
-    #     environment: 
-    #         - REACT_APP_API_URL=http://lytics.ca
-    #     stdin_open: true
+    #         - ./certbot/www:/var/www/certbot
+    #         - ./certbot/conf:/etc/letsencrypt
+    #     depends_on: 
+    #         - nginx
+
+    #     command: certonly --webroot -w /var/www/certbot --email pearsedoolin@gmail.com --agree-tos --no-eff-email --force-renewal -d www.lytics.ca -d lytics.ca
+
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile.prod
+        volumes:
+            - ./frontend/build:/app/frontend/build
+        environment: 
+            - REACT_APP_API_URL=http://lytics.ca
+        stdin_open: true
     
 volumes:
     postgres_data:
