@@ -32,14 +32,14 @@ services:
             - ./certbot/www:/var/www/certbot
             - ./certbot/conf:/etc/letsencrypt
             - ./certbot/dhparam:/etc/ssl/certs
-    # certbot:
-    #     image: certbot/certbot
-    #     volumes:
-    #         - ./certbot/www:/var/www/certbot
-    #         - ./certbot/conf:/etc/letsencrypt
+    certbot:
+        image: certbot/certbot
+        volumes:
+            - ./certbot/www:/var/www/certbot
+            - ./certbot/conf:/etc/letsencrypt
     #     depends_on: 
     #         - nginx
-
+        command: renew
     #     command: certonly --webroot -w /var/www/certbot --email pearsedoolin@gmail.com --agree-tos --no-eff-email --force-renewal -d www.lytics.ca -d lytics.ca
 
     frontend:
@@ -49,7 +49,7 @@ services:
         volumes:
             - ./frontend/build:/app/frontend/build
         environment: 
-            - REACT_APP_API_URL=http://lytics.ca
+            - REACT_APP_API_URL=https://lytics.ca
         stdin_open: true
     
 volumes:
