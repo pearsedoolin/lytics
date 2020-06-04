@@ -429,4 +429,5 @@ dmypy.json
 *.conf.save
 
 #letsencrypt
-certbot
+certbot/conf
+certbot/www
