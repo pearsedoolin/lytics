@@ -26,8 +26,18 @@ services:
             - ./frontend/build:/frontend/build
         ports:
             - 80:80
+            - 443:443
         depends_on:
             - db
+        volumes:
+            - ./data/certbot/conf:/etc/letsencrypt
+            - ./data/certbot/www:/var/www/certbot
+    certbot:
+        image: certbot/certbot
+        volumes:
+            - ./data/certbot/conf:/etc/letsencrypt
+            - ./data/certbot/www:/var/www/certbot
+
     frontend:
         build:
             context: ./frontend
