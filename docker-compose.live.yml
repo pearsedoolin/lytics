@@ -27,7 +27,7 @@ services:
         ports:
             - 80:80
         depends_on:
-            - web
+            - db
     frontend:
         build:
             context: ./frontend
