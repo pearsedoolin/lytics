@@ -50,5 +50,5 @@ services:
             - REACT_APP_API_URL=http://lytics.ca
         stdin_open: true
     
-# volumes:
-#     postgres_data:
+volumes:
+    postgres_data:
