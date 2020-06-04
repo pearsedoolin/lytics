@@ -39,9 +39,6 @@ services:
             - ./certbot/conf:/etc/letsencrypt
         depends_on: 
             - nginx
-        command: renew
-    #     command: certonly --webroot -w /var/www/certbot --email pearsedoolin@gmail.com --agree-tos --no-eff-email --force-renewal -d www.lytics.ca -d lytics.ca
-
     frontend:
         build:
             context: ./frontend
