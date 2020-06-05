@@ -431,3 +431,4 @@ dmypy.json
 #letsencrypt
 certbot/conf
 certbot/www
+certbot/dhparam
