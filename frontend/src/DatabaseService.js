@@ -6,22 +6,14 @@ const API_URL = process.env.REACT_APP_API_URL
 
 export default class DatabaseService{
 
-    // constructor(){}
 
-    getCustomers() {
-        require('dotenv').config()
-        const url = `${API_URL}/api/customers/`;
+    getDataNames(dataType) {
+        const url = `${API_URL}/api/getDataNames/${dataType}`;
         return axios.get(url).then(response => response.data);
     }
 
-    getVacancyCities() {
-
-        const url = `${API_URL}/api/vacancy/cities`;
-        return axios.get(url).then(response => response.data);
-    }
-
-    getVacancyData(city) {
-        const url = `${API_URL}/api/vacancy/${city}`;
+    getData(dataType, dataName) {
+        const url = `${API_URL}/api/getData/${dataType}/${dataName}`;
         return axios.get(url).then(response => response.data);
     }
 }

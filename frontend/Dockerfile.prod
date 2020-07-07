@@ -1,6 +1,5 @@
 FROM node:14.3.0-alpine3.11
 
-ENV HOME=
 ENV REACT_APP_API_URL=http://localhost:80
 
 # RUN addgroup -S frontend && adduser -S frontend -G frontend

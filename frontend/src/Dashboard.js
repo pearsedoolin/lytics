@@ -18,7 +18,7 @@
   import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
   import { mainListItems } from './listItems';
   // import Chart from './Chart';
-  import VacancyRates from './VacancyRates';
+  import Plotter from './Plotter';
 
   function Copyright() {
     return (
@@ -48,11 +48,10 @@
     return (
       <div >
         <CssBaseline />
-
         <main >
           <div />
           <Container maxWidth="xl" >
-            <VacancyRates />
+            <Plotter />
             <Box pt={4}>
               <Copyright />
             </Box>

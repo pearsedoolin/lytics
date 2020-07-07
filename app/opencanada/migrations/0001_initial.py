@@ -63,4 +63,17 @@ class Migration(migrations.Migration):
             name='province',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='opencanada.Province'),
         ),
+        migrations.CreateModel(
+            name='HousingPriceIndex',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('date', models.DateField()),
+                ('index_value', models.DecimalField(decimal_places=1, max_digits=5)),
+                ('index_type', models.CharField(choices=[('H', 'Housing'), ('L', 'Land'), ('B', 'Both Housing and Land')], max_length=1)),
+                ('city', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='opencanada.City')),
+            ],
+            options={
+                'ordering': ['date'],
+            },
+        ),
     ]

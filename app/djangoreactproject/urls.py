@@ -21,6 +21,6 @@ from opencanada import views as opencanada_views
 from django.conf.urls import url
 urlpatterns = [
     path('admin/', admin.site.urls),
-    url(r'^api/vacancy/cities$', opencanada_views.vacancy_cities_six_units),
-    url(r'^api/vacancy/(?P<city>[\w\-\.\s\']+)$', opencanada_views.vacancy_data_six_units),
+    url(r'^api/getDataNames/(?P<data_type>[\w\-\.\s\']+)$', opencanada_views.get_data_names),
+    url(r'^api/getData/(?P<data_type>[\w\-\.\s\']+)/(?P<data_name>[\w\-\.\s\']+)$', opencanada_views.get_data),
 ]
