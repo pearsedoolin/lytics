@@ -28,7 +28,7 @@ services:
         depends_on:
             - db
         volumes:
-            - ./frontend/build:/frontend/build
+            # - ./frontend/build:/frontend/build
             - ./certbot/www:/var/www/certbot
             - ./certbot/conf:/etc/letsencrypt
             - ./certbot/dhparam:/etc/ssl/certs
@@ -45,8 +45,8 @@ services:
         build:
             context: ./frontend
             dockerfile: Dockerfile.prod
-        volumes:
-            - ./frontend/build:/app/frontend/build
+        # volumes:
+        #     - ./frontend/build:/app/frontend/build
         environment: 
             - REACT_APP_API_URL=https://lytics.ca
         stdin_open: true
