@@ -3,7 +3,7 @@ const parseGeoraster = require("georaster");
 
 export default class OverpassService {
     constructor() {
-        this.overpassUrl = "http://overpass-api.de/api/interpreter?";
+        this.overpassUrl = "https://overpass-api.de/api/interpreter?";
     }
 
     getLatLngString = (bounds) => {
@@ -54,7 +54,7 @@ export default class OverpassService {
         }
         var nQuery = ");node(w)" + "(" + latLngString + ");";
         let overpass_query = "data=[out:json];(" + wQuery + nQuery + ");out;";
-        console.log("overpass_query: ", overpass_query);
+        // console.log("overpass_query: ", overpass_query);
         const url = this.overpassUrl + overpass_query;
         return axios.get(url).then(response => response.data);
     }
@@ -67,7 +67,7 @@ export default class OverpassService {
 
         var nQuery = "node(w)" + "(" + latLngString + ");";
         let overpass_query = "data=[out:json];(" + wQuery + nQuery + ");out;";
-        console.log("overpass_query: ", overpass_query);
+        // console.log("overpass_query: ", overpass_query);
         const url = this.overpassUrl + overpass_query;
         return axios.get(url).then(response => response.data);
     }
@@ -80,7 +80,7 @@ export default class OverpassService {
 
         var nQuery = "node(w)" + "(" + latLngString + ");";
         let overpass_query = "data=[out:json];(" + wQuery + nQuery + ");out;";
-        console.log("overpass_query: ", overpass_query);
+        // console.log("overpass_query: ", overpass_query);
         const url = this.overpassUrl + overpass_query;
         return axios.get(url).then(response => response.data);
     }
@@ -100,8 +100,8 @@ export default class OverpassService {
         const url = "https://s3.amazonaws.com/elevation-tiles-prod/geotiff/" + zoom + "/" + x_tile + "/" + y_tile + ".tif";
 
         return fetch(url).then(response => response.arrayBuffer()).then(parseGeoraster).then(georaster => {
-            console.log("georaster:", georaster);
-            console.log("elevation:", georaster.values[0][x_px][y_px]);
+            // console.log("georaster:", georaster);
+            // console.log("elevation:", georaster.values[0][x_px][y_px]);
             return georaster.values[0][y_px][x_px].toFixed(1);
 
         })

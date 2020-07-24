@@ -205,7 +205,7 @@ class MyMap extends Component {
           color={color}
           weight={5}
           onClick={(event) => {
-            console.log(event.latlng)
+            // console.log(event.latlng)
             let location = event.latlng;
             this.setState(() => {
               return { showPopup: true, popupLocation: location, popupContent: this.state.paths[key].tags }
@@ -257,7 +257,6 @@ class MyMap extends Component {
       if (decimals < 0) {
         decimals = 0;
       }
-      console.log(this.state.zoom)
       var righClickPopup = <Popup className="request-popup" position={this.state.rightClickPopupLocation}
 
         onClose={() => {
@@ -332,7 +331,7 @@ class MyMap extends Component {
     if (this.state.showElevationTiles) {
       var elevationTiles = <TileLayer
         attribution='<a href="https://www.mapzen.com/rights">Mapzen</a>'
-        url="https://s3.amazonaws.com/elevation-tiles-prod/normal/{z}/{x}/{y}.png"
+        url="https://s3.amazonaws.com/elevation-tiles-prod/normal/{z}/{x}/{y}.png" opacity={this.state.elevationTileOpacity / 100}
       />
     } else {
       var elevationTiles = "";
@@ -349,7 +348,7 @@ class MyMap extends Component {
           maxZoom={15}
           style={{ width: '100%', height: '60vh' }}
           oncontextmenu={(event) => {
-            console.log(event.layerPoint);
+            // console.log(event.layerPoint);
             this.setState({ rightClickPopupLocation: event.latlng, showRightClickPopup: true })
             overpassService.getElevation(event.latlng, this.state.zoom).then((elevation) => {
               this.setState({ rightClickPopupElevation: elevation })
