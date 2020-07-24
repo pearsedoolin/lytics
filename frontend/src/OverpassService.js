@@ -7,7 +7,7 @@ export default class OverpassService {
     }
 
     getLatLngString = (bounds) => {
-        return bounds._southWest.lat + "," + bounds._southWest.lng + "," + bounds._northEast.lat + "," + bounds._northEast.lng;
+        return bounds._southWest.lat.toFixed(4) + "," + bounds._southWest.lng.toFixed(4) + "," + bounds._northEast.lat.toFixed(4) + "," + bounds._northEast.lng.toFixed(4);
     }
 
     getMountains = (bounds, minElevation) => {
