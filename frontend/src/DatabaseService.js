@@ -1,11 +1,7 @@
 import axios from 'axios';
-
 require('dotenv').config({path: '/.env'});
-
 const API_URL = process.env.REACT_APP_API_URL
-
 export default class DatabaseService{
-
 
     getDataNames(dataType) {
         const url = `${API_URL}/api/getDataNames/${dataType}`;

@@ -1,62 +1,131 @@
-  import React from 'react';
-  import clsx from 'clsx';
-  import { makeStyles } from '@material-ui/core/styles';
-  import CssBaseline from '@material-ui/core/CssBaseline';
-  import Drawer from '@material-ui/core/Drawer';
-  import Button from '@material-ui/core/Button';
-  import Box from '@material-ui/core/Box';
-  import AppBar from '@material-ui/core/AppBar';
-  import Toolbar from '@material-ui/core/Toolbar';
-  import List from '@material-ui/core/List';
-  import Typography from '@material-ui/core/Typography';
-  import Divider from '@material-ui/core/Divider';
-  import IconButton from '@material-ui/core/IconButton';
-  import Container from '@material-ui/core/Container';
-  import Paper from '@material-ui/core/Paper';
-  import Link from '@material-ui/core/Link';
-  import MenuIcon from '@material-ui/icons/Menu';
-  import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
-  import { mainListItems } from './listItems';
-  // import Chart from './Chart';
-  import Plotter from './Plotter';
+import React, { Component } from 'react';
+import CssBaseline from '@material-ui/core/CssBaseline';
+import Box from '@material-ui/core/Box';
+import AppBar from '@material-ui/core/AppBar';
+import Toolbar from '@material-ui/core/Toolbar';
+import SwipeableDrawer from '@material-ui/core/SwipeableDrawer';
 
-  function Copyright() {
-    return (
-      <Typography variant="body2" color="textSecondary" align="center">
-        {'Copyright © '}
-        <Link color="inherit" href="https://lytics.ca/">
-          Lytics
+import List from '@material-ui/core/List';
+import Typography from '@material-ui/core/Typography';
+import Divider from '@material-ui/core/Divider';
+import IconButton from '@material-ui/core/IconButton';
+import Container from '@material-ui/core/Container';
+import Link from '@material-ui/core/Link';
+import MenuIcon from '@material-ui/icons/Menu';
+import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
+import Plotter from './Plotter';
+import MyMap from './Map';
+import theme from './theme'
+
+
+import ListItem from '@material-ui/core/ListItem';
+import ListItemIcon from '@material-ui/core/ListItemIcon';
+import ListItemText from '@material-ui/core/ListItemText';
+import ShowChartIcon from '@material-ui/icons/ShowChart';
+import Map from '@material-ui/icons/Map';
+
+import {
+  BrowserRouter as Router,
+  Switch,
+  Route,
+  Link as RouterLink,
+} from "react-router-dom";
+
+function Copyright() {
+  return (
+    <Typography variant="body2" color="textSecondary" align="center">
+      {'Copyright © '}
+      <Link color="inherit" href="https://lytics.ca/">
+        Lytics
         </Link>{' '}
-        {new Date().getFullYear()}
-        {'.'}
-      </Typography>
+      {new Date().getFullYear()}
+      {'.'}
+    </Typography>
+  );
+}
+
+class Dashboard extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      open: false,
+      window: "Maps"
+    }
+  }
+  handleDrawerOpen = () => {
+    this.setState({ open: true });
+  };
+  handleDrawerClose = () => {
+    this.setState({ open: false });
+  };
+  changeWindow = (text) => {
+    this.setState({ window: text, open: false });
+  };
+  MyNavbar = () => {
+    return (
+      <>
+        <AppBar position="static">
+          <Toolbar>
+            <IconButton edge="start" color="inherit" aria-label="menu" onClick={this.handleDrawerOpen}>
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6">
+              {this.state.window}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <SwipeableDrawer drawerWidth={1000}
+          open={this.state.open}
+        >
+          <IconButton onClick={this.handleDrawerClose}>
+            <ChevronLeftIcon />
+          </IconButton>
+          <Divider />
+          <List>
+            {['Statistics Plotter', 'Maps'].map((text, index) => (
+              <RouterLink to={index % 2 === 0 ? "/stats" : "/maps"} onClick={() => this.changeWindow(text)} style={{ textDecoration: 'none' }}>
+                <ListItem button onClick={() => this.changeWindow(text)}>
+                  <ListItemIcon>{index % 2 === 0 ? <ShowChartIcon /> : <Map />}</ListItemIcon>
+                  <ListItemText primary={text} style={{color: theme.palette.text.primary}}/>
+                </ListItem>
+              </RouterLink>
+            ))}
+          </List>
+        </SwipeableDrawer>
+      </>
     );
   }
 
-  const drawerWidth = 240;
-
-  export default function Dashboard() {
-    // const classes = useStyles();
-    const [open, setOpen] = React.useState(true);
-    const handleDrawerOpen = () => {
-      setOpen(true);
-    };
-    const handleDrawerClose = () => {
-      setOpen(false);
-    };
-
+  render() {
     return (
-      <div >
+      <>
         <CssBaseline />
         <main >
-          <div />
           <Container maxWidth="xl" >
-            <Plotter />
+            <Router>
+              <this.MyNavbar />
+              <Switch>
+                <Route path="/stats">
+                  <Plotter />
+                </Route>
+                <Route path="/maps">
+                  <MyMap />
+                </Route>
+                <Route path="/">
+                  <MyMap />
+                </Route>
+              </Switch>
+
+            </Router>
             <Box pt={4}>
               <Copyright />
             </Box>
           </Container>
         </main>
-      </div>
-    );
+        <CssBaseline />
+      </>
+    )
   }
+}
+
+export default Dashboard;

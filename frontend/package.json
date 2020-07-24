@@ -13,14 +13,22 @@
     "@material-ui/icons": "^4.9.1",
     "axios": "^0.19.2",
     "clsx": "latest",
+    "georaster": "^1.1.0",
+    "leaflet": "^1.6.0",
     "material-ui-icons": "^1.0.0-beta.36",
     "moment": "^2.26.0",
+    "osmtogeojson": "^3.0.0-beta.4",
     "react": "latest",
     "react-dom": "latest",
+    "react-leaflet": "^2.7.0",
+    "react-router-dom": "^5.2.0",
     "react-scripts": "latest",
     "recharts": "^1.8.5"
   },
   "devDependencies": {
+    "eslint": "^7.5.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-react": "^7.20.3",
     "nodemon": "^1.18.10"
   },
   "browserslist": {

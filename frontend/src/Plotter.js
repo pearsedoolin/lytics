@@ -34,11 +34,11 @@ class Graph extends Component {
   }
 
   render() {
-    if(this.props.data === undefined) {
-      return (<></>)
+    if (this.props.data === undefined) {
+      return (<></>);
     }
     else if (Object.keys(this.props.data).length === 0) {
-      return (<></>)
+      return (<></>);
     }
     else {
       return (
@@ -65,21 +65,20 @@ class Graph extends Component {
       <YAxis dataKey="data"
                 stroke={theme.palette.text.secondary}
               >
-
                 <Label
                   angle={270}
                   position="left"
                   style={{ textAnchor: 'middle', fill: theme.palette.text.primary }}
-                > {this.props.ylabel} 
+                > {this.props.ylabel}
                 </Label>
               </YAxis>
               <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
               <Tooltip formatter={(value, name) => {
                 return [value, this.props.dataNames[name].name]
-                }}
+              }}
                 labelFormatter={(label) => {
                   return [dateFormatter(label)]
-                  }}/>
+                }} />
               {Object.keys(this.props.data).map((k, i) => (
                 <Line dataKey='data'
                   type="monotone"
@@ -100,60 +99,45 @@ class DataSelector extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      //dataNames is a dict of {pk: {name: , checked: }}
       dataNames: {},
-      /*data is keyed by the cities' pk so it has the format the format:
-      {17: [{date: timestamp, data: 2.3},
-            {date: timestamp, data: 2.3},
-          ]
-      }
-      */
       data: {}
     }
   }
 
   componentDidMount() {
-    console.log(this.props.dataType)
     databaseService.getDataNames(this.props.dataType).then(result => {
       let dataNames = {}
       let key;
-
-      console.log(result.dataNames);
-
       for (key in result.dataNames) {
         let name = { name: result.dataNames[key].name, checked: false };
         dataNames[result.dataNames[key].pk] = name
       }
-
-      this.setState({dataNames: dataNames});
+      this.setState({ dataNames: dataNames });
     });
   }
 
-
-  checkboxClicked(pk){
+  checkboxClicked(pk) {
     var dataToAdd = []
-    //adding data
     if (!this.state.dataNames[pk].checked) {
       databaseService.getData(this.props.dataType, this.state.dataNames[pk].name).then(
         (result) => {
-
           for (let i = 0; i < (result.dates.length); i++) {
             dataToAdd.push({ date: result.dates[i], data: result.data[i] })
           }
+
           this.setState(prevState => {
             let dataNames = prevState.dataNames;
             let data = prevState.data;
             dataNames[pk].checked = true;
             data[pk] = dataToAdd;
-            
-            var xmin = 10000000;
-            var xmax = -1; 
-            for (let i =0; i < Object.values(data).length; i++) {
-              let min =  Object.values(data)[i][0]['date']
-              let max = Object.values(data)[i][Object.values(data)[i].length -1]['date']
 
-              xmin = (min < xmin)? min : xmin;
-              xmax = (max > xmax)? max: xmax;
+            var xmin = 10000000;
+            var xmax = -1;
+            for (let i = 0; i < Object.values(data).length; i++) {
+              let min = Object.values(data)[i][0]['date'];
+              let max = Object.values(data)[i][Object.values(data)[i].length - 1]['date'];
+              xmin = (min < xmin) ? min : xmin;
+              xmax = (max > xmax) ? max : xmax;
             }
             this.props.onDataChanged(this.props.id, dataNames, data, xmin, xmax);
             return { dataNames: dataNames, data: data };
@@ -167,13 +151,13 @@ class DataSelector extends Component {
         delete data[pk];
 
         var xmin = 10000000;
-        var xmax = -1; 
-        for (let i =0; i < Object.values(data).length; i++) {
-          let min =  Object.values(data)[i][0]['date']
-          let max = Object.values(data)[i][Object.values(data)[i].length -1]['date']
+        var xmax = -1;
+        for (let i = 0; i < Object.values(data).length; i++) {
+          let min = Object.values(data)[i][0]['date'];
+          let max = Object.values(data)[i][Object.values(data)[i].length - 1]['date'];
 
-          xmin = (min < xmin)? min : xmin;
-          xmax = (max > xmax)? max: xmax;
+          xmin = (min < xmin) ? min : xmin;
+          xmax = (max > xmax) ? max : xmax;
         }
 
         this.props.onDataChanged(this.props.id, dataNames, data, xmin, xmax);
@@ -185,32 +169,32 @@ class DataSelector extends Component {
   render() {
     return (
       <>
-      <ExpansionPanel>
-        <ExpansionPanelSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls="panel1a-content"
-          id="panel1a-header"
-        >
-        <Typography>{this.props.title}</Typography>
-        </ExpansionPanelSummary>
-        <ExpansionPanelDetails>
-        <FormGroup row>
-          {Object.keys(this.state.dataNames).map((pk) => {
-            return (
-              <FormControlLabel key={pk}
-                control={<Checkbox
-                  onChange={() => this.checkboxClicked(pk)}
-                  checked={this.state.dataNames[pk].checked}
-                  style={{
-                    color: this.state.dataNames[pk].checked ? colours[pk] : theme.secondary
-                  }}
-                />}
-                label={this.state.dataNames[pk].name}
-              />)
-          })}
-        </FormGroup>
-        </ExpansionPanelDetails>
-      </ExpansionPanel>
+        <ExpansionPanel>
+          <ExpansionPanelSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="panel1a-content"
+            id="panel1a-header"
+          >
+            <Typography>{this.props.title}</Typography>
+          </ExpansionPanelSummary>
+          <ExpansionPanelDetails>
+            <FormGroup row>
+              {Object.keys(this.state.dataNames).map((pk) => {
+                return (
+                  <FormControlLabel key={pk}
+                    control={<Checkbox
+                      onChange={() => this.checkboxClicked(pk)}
+                      checked={this.state.dataNames[pk].checked}
+                      style={{
+                        color: this.state.dataNames[pk].checked ? colours[pk] : theme.secondary
+                      }}
+                    />}
+                    label={this.state.dataNames[pk].name}
+                  />)
+              })}
+            </FormGroup>
+          </ExpansionPanelDetails>
+        </ExpansionPanel>
       </>
     );
 
@@ -219,9 +203,9 @@ class DataSelector extends Component {
 class Plotter extends Component {
   constructor(props) {
     super(props);
-    this.vacancyTitle = 'Vacancy Data'
-    this.housingStartsTitle = 'Housing Starts Data'
-    this.housingPriceIndexTitle = 'Housing Price Index'
+    this.vacancyTitle = 'Vacancy Data';
+    this.housingStartsTitle = 'Housing Starts Data';
+    this.housingPriceIndexTitle = 'Housing Price Index';
 
 
     this.state = {
@@ -233,7 +217,6 @@ class Plotter extends Component {
       xmaxs: {}
     }
   }
-
 
   dataChanged = (id, dataNames, data, xDataMin, xDataMax) => {
     // console.log('vacancy data', data)
@@ -273,8 +256,8 @@ class Plotter extends Component {
         <Grid item xs={12}>
           <h1>Statistics Plotter</h1>
           <p> This page can be used to plot data from <a href="https://open.canada.ca/">opencanada</a>
-</p>
-          </Grid>
+          </p>
+        </Grid>
 
         <Grid item xs={12}>
           <Paper>
@@ -312,20 +295,20 @@ class Plotter extends Component {
           </Paper>
         </Grid>
         <Grid item xs={12}>
-        
-            <DataSelector
-              id={1}
-              title={this.vacancyTitle}
-              dataType='vacancydatasixunits'
-              onDataChanged={this.dataChanged}
-              />
+
+          <DataSelector
+            id={1}
+            title={this.vacancyTitle}
+            dataType='vacancydatasixunits'
+            onDataChanged={this.dataChanged}
+          />
 
           <Paper>
             <DataSelector
               id={2}
               title={this.housingStartsTitle}
               dataType='housingstarts'
-              onDataChanged={this.dataChanged}/>
+              onDataChanged={this.dataChanged} />
           </Paper>
 
           <Paper>
@@ -333,7 +316,7 @@ class Plotter extends Component {
               id={3}
               title={this.housingPriceIndexTitle}
               dataType='housingpriceindex'
-              onDataChanged={this.dataChanged}/>
+              onDataChanged={this.dataChanged} />
           </Paper>
 
         </Grid>
