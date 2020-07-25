@@ -140,6 +140,7 @@ class MyMap extends Component {
     if (this.state.showVolcanoes) {
       overpassService.getVolcanoes(bounds, this.state.minVolcanoElevation).then(result => {
         this.setState(() => {
+          // console.log("volcanoes result: ", result);
           return { bounds: bounds, volcanoes: result.elements };
         })
       });
@@ -177,7 +178,14 @@ class MyMap extends Component {
     if (this.state.showMountains) {
       var mountains = this.state.mountains.map((element) => {
         return (<CircleMarker center={[element.lat, element.lon]}
-          color="grey" radius={4} />)
+          color="grey" radius={4} 
+          onClick={(event) => {
+            let location = event.latlng;
+            this.setState(() => {
+              return { showPopup: true, popupLocation: location, popupContent: element.tags }
+            })
+          }}
+          />)
       })
     } else {
       var mountains = "";
@@ -186,7 +194,15 @@ class MyMap extends Component {
     if (this.state.showVolcanoes) {
       var volcanoes = this.state.volcanoes.map((element) => {
         return (<CircleMarker center={[element.lat, element.lon]}
-          color={red[500]} radius={4} />);
+          color={red[500]} radius={4} 
+          onClick={(event) => {
+            let location = event.latlng;
+            this.setState(() => {
+              return { showPopup: true, popupLocation: location, popupContent: element.tags }
+            })
+          }}
+          
+          />);
       })
     } else {
       var volcanoes = "";
@@ -282,9 +298,18 @@ class MyMap extends Component {
     if (this.state.showPopup) {
       var noinfo = true;
       var content = Object.keys(this.state.popupContent).map((key) => {
-        if (key != "name" && key != "sac_scale" && key != "highway") {
+        // if (key != "name" && key != "sac_scale" && key != "highway" &&) {
+        if (!(["name", "sac_scale", "highway", "natural"]).includes(key) && key.match(/^name:/g) == null) {
           noinfo = false;
-          return <><b>{key}:&nbsp;</b>{this.state.popupContent[key]}  </>
+          let parsed_key = key.replace(/[:_]/g,' ');
+          let units = ""
+          if (parsed_key === "ele") {
+            parsed_key = "elevation";
+            units = "m";
+
+          }
+
+          return <><b>{parsed_key}:&nbsp;</b>{this.state.popupContent[key]} {units}  </>
         }
       })
       if (noinfo) {

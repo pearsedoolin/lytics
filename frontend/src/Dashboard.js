@@ -28,6 +28,7 @@ import {
   BrowserRouter as Router,
   Switch,
   Route,
+  useLocation,
   Link as RouterLink,
 } from "react-router-dom";
 
@@ -47,11 +48,14 @@ function Copyright() {
 class Dashboard extends Component {
   constructor(props) {
     super(props);
+    
     this.state = {
       open: false,
-      window: "Maps"
+      window: ""  
     }
   }
+
+
   handleDrawerOpen = () => {
     this.setState({ open: true });
   };
@@ -61,7 +65,17 @@ class Dashboard extends Component {
   changeWindow = (text) => {
     this.setState({ window: text, open: false });
   };
+
+
   MyNavbar = () => {
+
+    let location = useLocation().pathname;
+    if (location === "/" || location === "/maps") {
+      var navbarTitle = "Maps";
+    } else {
+      var navbarTitle = "Stats";
+    }
+
     return (
       <>
         <AppBar position="static">
@@ -70,7 +84,7 @@ class Dashboard extends Component {
               <MenuIcon />
             </IconButton>
             <Typography variant="h6">
-              {this.state.window}
+              {navbarTitle}
             </Typography>
           </Toolbar>
         </AppBar>
