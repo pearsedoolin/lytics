@@ -87,6 +87,8 @@ class MyMap extends Component {
       lat: 49.28555,
       lng: -123.12696,
 
+      deviceLat: 0,
+      deviceLng: 0,
       altitude: null,
       locationAccuracy: 0,
       locationAvailable: false,
@@ -94,9 +96,9 @@ class MyMap extends Component {
       direction: 0,
 
       zoom: 10,
-      openTopoOpacity: 25,
-      openStreetOpacity: 25,
-      elevationTileOpacity: 25,
+      openTopoOpacity: 50,
+      openStreetOpacity: 50,
+      elevationTileOpacity: 50,
       bounds: {},
       geoJSON: {},
 
@@ -128,49 +130,57 @@ class MyMap extends Component {
 
       showOpenStreetTiles: true,
       showOpenTopoTiles: true,
-      showElevationTiles: true,
+      showElevationTiles: false,
     };
   }
 
   geoLocationSuccess = (position) => {
-    if (position.coords.heading === null){
+    if (position.coords.heading === null) {
       var directionAvailable = false;
     } else {
       var directionAvailable = true;
     }
 
-    if (position.coords.altitude === null){
+    if (position.coords.altitude === null) {
       var altitudeAvalable = false;
 
     } else {
       var altitudeAvalable = true;
     }
-    this.setState((prevstate) => { 
+
+    this.setState((prevstate) => {
       if (prevstate.locationAvailable === false) {
-        var zoom = 16;
+        return {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          deviceLat: position.coords.latitude,
+          deviceLng: position.coords.longitude,
+          locationAccuracy: position.coords.accuracy,
+          locationAvailable: true,
+          altitudeAvalable: altitudeAvalable,
+          altitude: position.coords.altitude,
+          directionAvailable: directionAvailable,
+          direction: position.coords.heading,
+          zoom: 16
+        }
       } else {
-        var zoom = prevstate.zoom;
+        return {
+          deviceLat: position.coords.latitude,
+          deviceLng: position.coords.longitude,
+          locationAccuracy: position.coords.accuracy,
+          locationAvailable: true,
+          altitudeAvalable: altitudeAvalable,
+          altitude: position.coords.altitude,
+          directionAvailable: directionAvailable,
+          direction: position.coords.heading,
+        }
       }
-      
-      return {
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-      locationAccuracy: position.coords.accuracy,
-      locationAvailable: true,
-      altitudeAvalable: altitudeAvalable,
-      altitude: position.coords.altitude,
-      directionAvailable: directionAvailable,
-      direction: position.coords.heading,
-      zoom: zoom
-    }
-  })
+    })
   }
 
   geoLocationError = (error) => {
-    console.log("Geolocation Unavailable")
+    console.log("Geolocation Unavailable", error)
   }
-
-
 
   componentDidMount() {
     this.handleMapChange();
@@ -178,8 +188,8 @@ class MyMap extends Component {
     if ('geolocation' in navigator) {
       let options = {
         enableHighAccuracy: true,
-        maximumAge: 30000,
-        timeout: 27000
+        maximumAge: Infinity,
+        // timeout: 30000
       };
 
       const watchID = navigator.geolocation.watchPosition(this.geoLocationSuccess, this.geoLocationError, options);
@@ -451,7 +461,7 @@ class MyMap extends Component {
     }
 
     if (this.state.locationAvailable) {
-      const latlng = { lat: this.state.lat, lng: this.state.lng };
+      const latlng = { lat: this.state.deviceLat, lng: this.state.deviceLng };
       var accuracyCircle = <Circle center={latlng} radius={this.state.locationAccuracy} />
 
       if (this.state.directionAvailable) {
@@ -462,7 +472,7 @@ class MyMap extends Component {
           shadowSize: [5, 10],
           iconAnchor: [10, 15],
         });
-        var locationMarker = <RotatedMarker position={latlng} icon={thisIcon} rotationAngle={this.state.direction}   />
+        var locationMarker = <RotatedMarker position={latlng} icon={thisIcon} rotationAngle={this.state.direction} />
 
       } else {
         var thisIcon = new Icon({
@@ -473,7 +483,7 @@ class MyMap extends Component {
           iconAnchor: [10, 30],
         });
 
-        var locationMarker = <Marker position={latlng} icon={thisIcon}   />
+        var locationMarker = <Marker position={latlng} icon={thisIcon} />
 
       }
 
@@ -510,24 +520,24 @@ class MyMap extends Component {
       var elevationTiles = "";
     }
 
-    if (this.state.zoom <=17){
+    if (this.state.zoom <= 17) {
       var topoMapsUnavailableMessage = ""
     } else {
       var topoMapsUnavailableMessage = <Tooltip title="Unavailable at this zoom">
-      {/* <IconButton> */}
-      <WarningIcon style={{color:"orange"}}/>
-      {/* </IconButton> */}
-    </Tooltip>
+        {/* <IconButton> */}
+        <WarningIcon style={{ color: "orange" }} />
+        {/* </IconButton> */}
+      </Tooltip>
     }
 
-    if (this.state.zoom <=15){
+    if (this.state.zoom <= 15) {
       var elevationMapsUnavailableMessage = ""
     } else {
       var elevationMapsUnavailableMessage = <Tooltip title="Unavailable at this zoom">
-      {/* <IconButton> */}
-        <WarningIcon style={{color:"orange"}}/>
-      {/* </IconButton> */}
-    </Tooltip>
+        {/* <IconButton> */}
+        <WarningIcon style={{ color: "orange" }} />
+        {/* </IconButton> */}
+      </Tooltip>
     }
 
 
@@ -572,12 +582,12 @@ class MyMap extends Component {
                 <FormGroup row>
                   <Box ml={2}><Typography>OpenStreetMaps Opacity</Typography>
                   </Box>
-                  <GreenSwitch checked={this.state.showOpenStreetTiles} 
-                  onClick={() => {
-                    this.setState((prevstate) => {
-                      return { showOpenStreetTiles: !(prevstate.showOpenStreetTiles) }
-                    })
-                  }}></GreenSwitch>
+                  <GreenSwitch checked={this.state.showOpenStreetTiles}
+                    onClick={() => {
+                      this.setState((prevstate) => {
+                        return { showOpenStreetTiles: !(prevstate.showOpenStreetTiles) }
+                      })
+                    }}></GreenSwitch>
                 </FormGroup>
                 <Slider disabled={!this.state.showOpenStreetTiles} value={this.state.openStreetOpacity} onChange={(event, newValue) => {
                   this.setState({ openStreetOpacity: newValue })
