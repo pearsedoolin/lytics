@@ -89,7 +89,7 @@ class Dashboard extends Component {
           </Toolbar>
         </AppBar>
         <SwipeableDrawer drawerWidth={1000}
-          open={this.state.open}
+          open={this.state.open} onOpen={()=>{}} onClose={()=>{}}
         >
           <IconButton onClick={this.handleDrawerClose}>
             <ChevronLeftIcon />

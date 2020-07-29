@@ -13,16 +13,26 @@ import ExpansionPanelDetails from '@material-ui/core/ExpansionPanelDetails';
 import Typography from '@material-ui/core/Typography';
 import Slider from '@material-ui/core/Slider';
 import OverpassService from './OverpassService';
-import { Map, Polyline, TileLayer, CircleMarker, Popup } from 'react-leaflet'
+import { Map, Polyline, TileLayer, CircleMarker, Popup, Circle, Marker } from 'react-leaflet'
 import Switch from '@material-ui/core/Switch';
 import { withStyles } from '@material-ui/core/styles';
 
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import { red } from '@material-ui/core/colors';
-import "./Map.css";
+import WarningIcon from '@material-ui/icons/Warning';
+import IconButton from '@material-ui/core/IconButton';
+import Tooltip from '@material-ui/core/Tooltip';
 
-const VolcanoSwitch = withStyles({
+import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import { red, green } from '@material-ui/core/colors';
+import "./Map.css";
+import { Icon, Point } from 'leaflet';
+
+import locationIcon from './locationIcon.png';
+import locationArrow from './arrow.png';
+import RotatedMarker from './RotatedMarker';
+
+const RedSwitch = withStyles({
   switchBase: {
+    // color: red[300],
     '&$checked': {
       color: red[500],
     },
@@ -31,6 +41,22 @@ const VolcanoSwitch = withStyles({
     },
   },
   checked: {},
+  track: {},
+})(Switch);
+
+
+const GreenSwitch = withStyles({
+  switchBase: {
+    // color: red[300],
+    '&$checked': {
+      color: green[500],
+    },
+    '&$checked + $track': {
+      backgroundColor: green[500],
+    },
+  },
+  checked: {},
+  track: {},
 })(Switch);
 
 const overpassService = new OverpassService();
@@ -58,9 +84,16 @@ class MyMap extends Component {
     this.pathColours = ["#fab385", "#f89454", "#f67523", "#dc5c09", "#ab4707", "#7a3305", "#491f03"];
 
     this.state = {
-      lat: 49.782063,
-      lng: -123.241777,
-      zoom: 13,
+      lat: 49.28555,
+      lng: -123.12696,
+
+      altitude: null,
+      locationAccuracy: 0,
+      locationAvailable: false,
+      directionAvailable: false,
+      direction: 0,
+
+      zoom: 10,
       openTopoOpacity: 25,
       openStreetOpacity: 25,
       elevationTileOpacity: 25,
@@ -99,8 +132,81 @@ class MyMap extends Component {
     };
   }
 
+  geoLocationSuccess = (position) => {
+    if (position.coords.heading === null){
+      var directionAvailable = false;
+    } else {
+      var directionAvailable = true;
+    }
+
+    if (position.coords.altitude === null){
+      var altitudeAvalable = false;
+
+    } else {
+      var altitudeAvalable = true;
+    }
+    this.setState((prevstate) => { 
+      if (prevstate.locationAvailable === false) {
+        var zoom = 16;
+      } else {
+        var zoom = prevstate.zoom;
+      }
+      
+      return {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+      locationAccuracy: position.coords.accuracy,
+      locationAvailable: true,
+      altitudeAvalable: altitudeAvalable,
+      altitude: position.coords.altitude,
+      directionAvailable: directionAvailable,
+      direction: position.coords.heading,
+      zoom: zoom
+    }
+  })
+  }
+
+  geoLocationError = (error) => {
+    console.log("Geolocation Unavailable")
+  }
+
+
+
   componentDidMount() {
     this.handleMapChange();
+    // navigator.geolocation.
+    if ('geolocation' in navigator) {
+      let options = {
+        enableHighAccuracy: true,
+        maximumAge: 30000,
+        timeout: 27000
+      };
+
+      const watchID = navigator.geolocation.watchPosition(this.geoLocationSuccess, this.geoLocationError, options);
+
+      /* geolocation is available */
+      // console.log("Geolocation Available")
+    } else {
+      /* geolocation IS NOT available */
+      // console.log("Geolocation Unavailable")
+
+    }
+
+
+
+
+    // this.refs.map.leafletElement.locate({setView: true, maxZoom: 16});
+
+    //     navigator.geolocation.getCurrentPosition((position) => {
+    //       var crd = position.coords;
+
+    //       console.log('Your current position is:');
+    //       console.log(`Latitude : ${crd.latitude}`);
+    //       console.log(`Longitude: ${crd.longitude}`);
+    //       console.log(`More or less ${crd.accuracy} meters.`);
+
+    //       this.setState(() => ({lat: position.coords.latitude, lng: position.coords.longitude}))
+    // }, (err) => {console.log('ERROR: ', err.message)}, options)
   }
 
   overpassWayConverter = (result) => {
@@ -113,7 +219,6 @@ class MyMap extends Component {
 
     var paths = {};
     var wayNodes = [];
-
     result.elements.forEach((obj) => {
       if (obj.type == "way") {
         wayNodes = [];
@@ -127,6 +232,17 @@ class MyMap extends Component {
     });
     return paths;
   }
+
+  //   locationFound = (e) => {
+  //     console.log("accuracy: ", e.accuracy)
+  //     this.setState(()=> ({accuracy: e.accuracy, lat: e.latlng.lat, lng: e.latlng.lng }));
+  // }
+
+  // locationError = (e) => {
+  //   alert(e.message);
+  // }
+
+
 
   handleMapChange = () => {
     let bounds = this.refs.map.leafletElement.getBounds();
@@ -178,14 +294,14 @@ class MyMap extends Component {
     if (this.state.showMountains) {
       var mountains = this.state.mountains.map((element) => {
         return (<CircleMarker center={[element.lat, element.lon]}
-          color="grey" radius={4} 
+          color="grey" radius={4}
           onClick={(event) => {
             let location = event.latlng;
             this.setState(() => {
               return { showPopup: true, popupLocation: location, popupContent: element.tags }
             })
           }}
-          />)
+        />)
       })
     } else {
       var mountains = "";
@@ -194,15 +310,15 @@ class MyMap extends Component {
     if (this.state.showVolcanoes) {
       var volcanoes = this.state.volcanoes.map((element) => {
         return (<CircleMarker center={[element.lat, element.lon]}
-          color={red[500]} radius={4} 
+          color={red[500]} radius={4}
           onClick={(event) => {
             let location = event.latlng;
             this.setState(() => {
               return { showPopup: true, popupLocation: location, popupContent: element.tags }
             })
           }}
-          
-          />);
+
+        />);
       })
     } else {
       var volcanoes = "";
@@ -301,7 +417,7 @@ class MyMap extends Component {
         // if (key != "name" && key != "sac_scale" && key != "highway" &&) {
         if (!(["name", "sac_scale", "highway", "natural"]).includes(key) && key.match(/^name:/g) == null) {
           noinfo = false;
-          let parsed_key = key.replace(/[:_]/g,' ');
+          let parsed_key = key.replace(/[:_]/g, ' ');
           let units = ""
           if (parsed_key === "ele") {
             parsed_key = "elevation";
@@ -334,6 +450,38 @@ class MyMap extends Component {
       var popup = "";
     }
 
+    if (this.state.locationAvailable) {
+      const latlng = { lat: this.state.lat, lng: this.state.lng };
+      var accuracyCircle = <Circle center={latlng} radius={this.state.locationAccuracy} />
+
+      if (this.state.directionAvailable) {
+        var thisIcon = new Icon({
+          iconUrl: locationArrow,
+          iconAnchor: new Point(10, 15),
+          iconSize: [20, 30],
+          shadowSize: [5, 10],
+          iconAnchor: [10, 15],
+        });
+        var locationMarker = <RotatedMarker position={latlng} icon={thisIcon} rotationAngle={this.state.direction}   />
+
+      } else {
+        var thisIcon = new Icon({
+          iconUrl: locationIcon,
+          iconAnchor: new Point(10, 15),
+          iconSize: [20, 30],
+          shadowSize: [5, 10],
+          iconAnchor: [10, 30],
+        });
+
+        var locationMarker = <Marker position={latlng} icon={thisIcon}   />
+
+      }
+
+    } else {
+      var accuracyCircle = ""
+      var locationMarker = ""
+    }
+
     if (this.state.showOpenStreetTiles) {
       var openStreetTiles = <TileLayer
         attribution='<a href="http://osm.org/copyright">OpenStreetMap</a>'
@@ -343,7 +491,7 @@ class MyMap extends Component {
       var openStreetTiles = "";
     }
 
-    if (this.state.showOpenTopoTiles) {
+    if (this.state.showOpenTopoTiles && this.state.zoom <= 17) {
       var openTopoTiles = <TileLayer
         attribution='<a href="https://www.mapzen.com/terms/">OpenTopoMap</a>'
         url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png" opacity={this.state.openTopoOpacity / 100}
@@ -353,7 +501,7 @@ class MyMap extends Component {
       var openTopoTiles = "";
     }
 
-    if (this.state.showElevationTiles) {
+    if (this.state.showElevationTiles && this.state.zoom <= 15) {
       var elevationTiles = <TileLayer
         attribution='<a href="https://www.mapzen.com/rights">Mapzen</a>'
         url="https://s3.amazonaws.com/elevation-tiles-prod/normal/{z}/{x}/{y}.png" opacity={this.state.elevationTileOpacity / 100}
@@ -362,15 +510,38 @@ class MyMap extends Component {
       var elevationTiles = "";
     }
 
+    if (this.state.zoom <=17){
+      var topoMapsUnavailableMessage = ""
+    } else {
+      var topoMapsUnavailableMessage = <Tooltip title="Unavailable at this zoom">
+      {/* <IconButton> */}
+      <WarningIcon style={{color:"orange"}}/>
+      {/* </IconButton> */}
+    </Tooltip>
+    }
+
+    if (this.state.zoom <=15){
+      var elevationMapsUnavailableMessage = ""
+    } else {
+      var elevationMapsUnavailableMessage = <Tooltip title="Unavailable at this zoom">
+      {/* <IconButton> */}
+        <WarningIcon style={{color:"orange"}}/>
+      {/* </IconButton> */}
+    </Tooltip>
+    }
+
+
     return (
       <>
         <Map ref='map' onmoveend={this.handleMapChange}
           center={[this.state.lat, this.state.lng]}
+          // onlocationfound={this.locationFound}
+          // onlocationerror={this.locationError}
           zoom={this.state.zoom}
           onzoomend={() => {
             this.setState({ zoom: this.refs.map.leafletElement.getZoom() })
           }}
-          maxZoom={15}
+          maxZoom={19}
           style={{ width: '100%', height: '60vh' }}
           oncontextmenu={(event) => {
             // console.log(event.layerPoint);
@@ -390,7 +561,9 @@ class MyMap extends Component {
           {openStreetTiles}
           {openTopoTiles}
           {elevationTiles}
-          
+          {accuracyCircle}
+          {locationMarker}
+
         </Map>
         <Box mt={3}>
           <Paper elevation={3}>
@@ -398,12 +571,13 @@ class MyMap extends Component {
               <Grid item md={4} sm={6} xs={12}>
                 <FormGroup row>
                   <Box ml={2}><Typography>OpenStreetMaps Opacity</Typography>
-                    </Box>
-                  <Switch checked={this.state.showOpenStreetTiles} onClick={() => {
+                  </Box>
+                  <GreenSwitch checked={this.state.showOpenStreetTiles} 
+                  onClick={() => {
                     this.setState((prevstate) => {
                       return { showOpenStreetTiles: !(prevstate.showOpenStreetTiles) }
                     })
-                  }}> </Switch>
+                  }}></GreenSwitch>
                 </FormGroup>
                 <Slider disabled={!this.state.showOpenStreetTiles} value={this.state.openStreetOpacity} onChange={(event, newValue) => {
                   this.setState({ openStreetOpacity: newValue })
@@ -415,11 +589,11 @@ class MyMap extends Component {
                 <FormGroup row>
                   <Box ml={2}><Typography>
                     OpenTopoMaps Opacity</Typography></Box>
-                  <Switch checked={this.state.showOpenTopoTiles} onClick={() => {
+                  <GreenSwitch checked={this.state.showOpenTopoTiles} onClick={() => {
                     this.setState((prevstate) => {
                       return { showOpenTopoTiles: !(prevstate.showOpenTopoTiles) }
                     });
-                  }}> </Switch>
+                  }}> </GreenSwitch> {topoMapsUnavailableMessage}
                 </FormGroup>
                 <Slider disabled={!this.state.showOpenTopoTiles} value={this.state.openTopoOpacity} onChange={(event, newValue) => {
                   this.setState({ openTopoOpacity: newValue });
@@ -431,11 +605,11 @@ class MyMap extends Component {
                 <FormGroup row>
                   <Box ml={2}><Typography id="discrete-slider" gutterBottom>
                     Mapzen Elevation Opacity</Typography></Box>
-                  <Switch checked={this.state.showElevationTiles} onClick={() => {
+                  <GreenSwitch checked={this.state.showElevationTiles} onClick={() => {
                     this.setState((prevstate) => {
                       return { showElevationTiles: !(prevstate.showElevationTiles) }
                     });
-                  }}> </Switch>
+                  }}> </GreenSwitch> {elevationMapsUnavailableMessage}
                 </FormGroup>
                 <Slider disabled={!this.state.showElevationTiles} value={this.state.elevationTileOpacity} onChange={(event, newValue) => {
                   this.setState({ elevationTileOpacity: newValue })
@@ -488,7 +662,7 @@ class MyMap extends Component {
                   <ExpansionPanelDetails>
                     <Grid container spacing={3}>
                       <Grid item md={3}>
-                        <VolcanoSwitch checked={this.state.showVolcanoes} onClick={() => {
+                        <RedSwitch checked={this.state.showVolcanoes} onClick={() => {
                           this.setState((prevstate) => {
                             return { showVolcanoes: !(prevstate.showVolcanoes) }
                           }, () => { this.handleMapChange() });
