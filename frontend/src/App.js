@@ -4,7 +4,7 @@ import Dashboard from './Dashboard';
 
 export default function App() {
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="xl">
       <Dashboard />
     </Container>
   );

@@ -1,796 +1,443 @@
-import React, { Component } from 'react';
-import FormGroup from '@material-ui/core/FormGroup';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Checkbox from '@material-ui/core/Checkbox';
-import Grid from '@material-ui/core/Grid';
-import { popupContent, popupHead, popupText } from "./popupStyles";
+import React, {useState, useEffect} from 'react';
+import {MapContainer, useMapEvents, Popup} from 'react-leaflet';
+import {
+  Paper,
+  Box,
+  Grid,
+  Typography,
+} from '@material-ui/core';
+import Alert from '@material-ui/lab/Alert';
 
-import theme from './theme'
-import { Paper, Box } from '@material-ui/core';
-import ExpansionPanel from '@material-ui/core/ExpansionPanel';
-import ExpansionPanelSummary from '@material-ui/core/ExpansionPanelSummary';
-import ExpansionPanelDetails from '@material-ui/core/ExpansionPanelDetails';
-import Typography from '@material-ui/core/Typography';
-import Slider from '@material-ui/core/Slider';
 import OverpassService from './OverpassService';
-import { Map, Polyline, TileLayer, CircleMarker, Popup, Circle, Marker } from 'react-leaflet'
-import Switch from '@material-ui/core/Switch';
-import { withStyles } from '@material-ui/core/styles';
-
-import WarningIcon from '@material-ui/icons/Warning';
-import IconButton from '@material-ui/core/IconButton';
-import Tooltip from '@material-ui/core/Tooltip';
-
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import { red, green } from '@material-ui/core/colors';
-import "./Map.css";
-import { Icon, Point } from 'leaflet';
-
-import locationIcon from './locationIcon.png';
-import locationArrow from './arrow.png';
-import RotatedMarker from './RotatedMarker';
-
-const RedSwitch = withStyles({
-  switchBase: {
-    // color: red[300],
-    '&$checked': {
-      color: red[500],
-    },
-    '&$checked + $track': {
-      backgroundColor: red[500],
-    },
-  },
-  checked: {},
-  track: {},
-})(Switch);
-
-
-const GreenSwitch = withStyles({
-  switchBase: {
-    // color: red[300],
-    '&$checked': {
-      color: green[500],
-    },
-    '&$checked + $track': {
-      backgroundColor: green[500],
-    },
-  },
-  checked: {},
-  track: {},
-})(Switch);
+import {
+  PointsWithElevation,
+  PointsWithElevationController,
+} from './PointsWithElevation';
+import {Paths, PathsController} from './Paths';
+import {MapLayer, MapLayerController} from './TileLayer';
+import {DeviceMarker} from './DeviceMarker';
+import {popupContent, popupHead, popupText} from './popupStyles';
 
 const overpassService = new OverpassService();
+/**
+ * Gets converts the result to path
+ * @param {*} result
+ * @return {[]} paths array
+ */
+function overpassWayConverter(result) {
+  const nodes = {};
+  result.elements.forEach((obj) => {
+    if (obj.type == 'node') {
+      nodes[obj.id] = {lat: obj.lat, lon: obj.lon};
+    }
+  });
+  const paths = {};
+  let wayNodes = [];
+  result.elements.forEach((obj) => {
+    if (obj.type == 'way') {
+      wayNodes = [];
+      obj.nodes.forEach((nodeID) => {
+        if (nodeID in nodes) {
+          wayNodes.push([nodes[nodeID].lat, nodes[nodeID].lon]);
+        }
+      });
+      paths[obj.id] = {nodes: wayNodes, tags: obj.tags};
+    }
+  });
+  return paths;
+}
+/**
+ *
+ * @param {*} props
+ * @return {JSX} Map component
+ */
+function MyMap(props) {
+  // State of Map
+  const [zoom, setZoom] = useState(15);
+  const [mapCenter, setMapCenter] = useState([49.2, -123]);
+  const [bounds, setBounds] = useState(null);
 
-class MyMap extends Component {
-  constructor(props) {
-    super(props);
+  // States of Tiles
+  const [showOSM, setShowOSM] = useState(false);
+  const [OSMOpacity, setOSMOpacity] = useState(50);
+  const [showOTM, setShowOTM] = useState(true);
+  const [OTMOpacity, setOTMOpacity] = useState(100);
+  const [showElevation, setShowElevation] = useState(false);
+  const [elevationOpacity, setElevationOpacity] = useState(50);
 
-    this.sacScale = ['hiking',
-      'mountain_hiking',
-      'demanding_mountain_hiking',
-      'alpine_hiking',
-      'demanding_alpine_hiking',
-      'difficult_alpine_hiking'
-    ]
+  // State of Device
+  const [deviceLocation, setDeviceLocation] = useState({lat: 49, lng: -123});
+  const [deviceFound, setDeviceFound] = useState(false);
+  const [deviceLocationAccuracy, setDeviceLocationAccuracy] = useState(0);
 
-    this.cycleRoutesColour = "#522B72";
-    this.MTBRoutesColour = "#8B66A9";
+  // Mountains
+  const [showMountains, setShowMountains] = useState(false);
+  const [minMountainElevation, setMinMountainElevation] = useState(1800);
+  const [mountainPoints, setMountainPoints] = useState([]);
 
-    let showSacScale = {};
-    this.sacScale.forEach((sac) => {
-      showSacScale[sac] = false;
-    })
+  // Volcanoes
+  const [showVolcanoes, setShowVolcanoes] = useState(false);
+  const [minVolcanoElevation, setMinVolcanoElevation] = useState(1800);
+  const [volcanoPoints, setVolcanoPoints] = useState([]);
 
-    this.pathColours = ["#fab385", "#f89454", "#f67523", "#dc5c09", "#ab4707", "#7a3305", "#491f03"];
+  // Bike
+  const [bikePathTypes, setBikePathTypes] = useState({
+    MTB: {show: false, string: 'Mountain Bike Paths', color: '#522B72'},
+    Cycle: {show: false, string: 'Cycling Paths', color: '#8B66A9'},
+  });
 
-    this.state = {
-      lat: 49.28555,
-      lng: -123.12696,
+  const [bikePaths, setBikePaths] = useState({});
 
-      deviceLat: 0,
-      deviceLng: 0,
-      altitude: null,
-      locationAccuracy: 0,
-      locationAvailable: false,
-      directionAvailable: false,
-      direction: 0,
+  // Alerts
+  const [dataSizeWarnings, setDataSizeWarnings] = useState({
+    Mountains: '',
+    Volcanoes: '',
+    Hiking: '',
+    Biking: '',
+  });
 
-      zoom: 10,
-      openTopoOpacity: 50,
-      openStreetOpacity: 50,
-      elevationTileOpacity: 50,
-      bounds: {},
-      geoJSON: {},
+  const dataSizeMessage = 'data is too large, try zooming in to' +
+  ' decrease the amount of data that will be shown.';
 
-      mountains: [],
-      showMountains: false,
-      minMountainElevation: 1800,
+  // Hiking
+  const [hikingPathTypes, setHikingPathTypes] = useState({
+    hiking: {show: false, string: 'Hiking', color: '#fab385'},
+    mountain_hiking: {show: false, string: 'Mountain Hiking', color: '#f89454'},
+    demanding_mountain_hiking: {show: false,
+      string: 'Demanding Mountain Hiking',
+      color: '#f67523'},
+    alpine_hiking: {show: false, string: 'Alpine Hiking', color: '#dc5c09'},
+    demanding_alpine_hiking: {show: false,
+      string: 'Demanding Alpine Hiking',
+      color: 'ab4707'},
+    difficult_alpine_hiking: {show: false,
+      string: 'Difficult Alpine Hiking', color: '#7a3305'},
+    no_sac_scale: {show: false, string: 'No SAC scale', color: '#491f03'},
+  });
 
-      volcanoes: [],
-      showVolcanoes: false,
-      minVolcanoElevation: 1800,
+  const [highlightedPathID, setHighlightedPathID] = useState(0);
 
-      paths: {},
-      showSacScale: showSacScale,
-      showNoSacScale: false,
-
-      showPopup: false,
-      popupContent: {},
-      popupLocation: [49, -123],
-
-      showCycleRoutes: false,
-      showMTBRoutes: false,
-      MTBRoutes: {},
-      cycleRoutes: {},
-
-      showRightClickPopup: false,
-      rightClickPopupLocation: [49, -123],
-      rightClickPopupElevation: "",
-      rightClickPopupContent: {},
-
-      showOpenStreetTiles: true,
-      showOpenTopoTiles: true,
-      showElevationTiles: false,
-    };
+  // InfoPopup
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupTags, setPopupTags] = useState({});
+  const [popupType, setPopupType] = useState('');
+  const [popupTitle, setPopupTitle] = useState('Popup Title');
+  const [popupLocation, setPopupLocation] = useState({lat: 49, lng: -123});
+  const [hikingPaths, setHikingPaths] = useState({});
+  /**
+ *
+ * @param {obj} result The result from overpass
+ * @param {str} dataName The name of the data, ie. Mountains
+ * @return {bool} True if maxSize not exceeded
+ */
+  function checkMaxSize(result, dataName) {
+    if ('remark' in result &&
+    result.remark.includes('runtime error: Query ran out of memory')) {
+      var message = dataName + ' ' + dataSizeMessage;
+      var ret = false;
+    } else {
+      var message = '';
+      var ret = true;
+    }
+    setDataSizeWarnings((prevState) => {
+      prevState[dataName] = message;
+      return prevState;
+    });
+    return ret;
   }
 
-  geoLocationSuccess = (position) => {
-    if (position.coords.heading === null) {
-      var directionAvailable = false;
-    } else {
-      var directionAvailable = true;
-    }
-
-    if (position.coords.altitude === null) {
-      var altitudeAvalable = false;
-
-    } else {
-      var altitudeAvalable = true;
-    }
-
-    this.setState((prevstate) => {
-      if (prevstate.locationAvailable === false) {
-        return {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          deviceLat: position.coords.latitude,
-          deviceLng: position.coords.longitude,
-          locationAccuracy: position.coords.accuracy,
-          locationAvailable: true,
-          altitudeAvalable: altitudeAvalable,
-          altitude: position.coords.altitude,
-          directionAvailable: directionAvailable,
-          direction: position.coords.heading,
-          zoom: 16
-        }
+  /**
+ *
+ */
+  function updateMountains() {
+    if (bounds === null || !showMountains) return;
+    overpassService.getMountains(bounds, minMountainElevation).then((result) => {
+      if (checkMaxSize(result, 'Mountains')) {
+        setMountainPoints(result.elements);
       } else {
-        return {
-          deviceLat: position.coords.latitude,
-          deviceLng: position.coords.longitude,
-          locationAccuracy: position.coords.accuracy,
-          locationAvailable: true,
-          altitudeAvalable: altitudeAvalable,
-          altitude: position.coords.altitude,
-          directionAvailable: directionAvailable,
-          direction: position.coords.heading,
-        }
-      }
-    })
-  }
-
-  geoLocationError = (error) => {
-    console.log("Geolocation Unavailable", error)
-  }
-
-  componentDidMount() {
-    this.handleMapChange();
-    // navigator.geolocation.
-    if ('geolocation' in navigator) {
-      let options = {
-        enableHighAccuracy: true,
-        maximumAge: Infinity,
-        // timeout: 30000
-      };
-
-      const watchID = navigator.geolocation.watchPosition(this.geoLocationSuccess, this.geoLocationError, options);
-
-      /* geolocation is available */
-      // console.log("Geolocation Available")
-    } else {
-      /* geolocation IS NOT available */
-      // console.log("Geolocation Unavailable")
-
-    }
-
-
-
-
-    // this.refs.map.leafletElement.locate({setView: true, maxZoom: 16});
-
-    //     navigator.geolocation.getCurrentPosition((position) => {
-    //       var crd = position.coords;
-
-    //       console.log('Your current position is:');
-    //       console.log(`Latitude : ${crd.latitude}`);
-    //       console.log(`Longitude: ${crd.longitude}`);
-    //       console.log(`More or less ${crd.accuracy} meters.`);
-
-    //       this.setState(() => ({lat: position.coords.latitude, lng: position.coords.longitude}))
-    // }, (err) => {console.log('ERROR: ', err.message)}, options)
-  }
-
-  overpassWayConverter = (result) => {
-    var nodes = {};
-    result.elements.forEach((obj) => {
-      if (obj.type == "node") {
-        nodes[obj.id] = { lat: obj.lat, lon: obj.lon };
+        setMountainPoints([]);
       }
     });
-
-    var paths = {};
-    var wayNodes = [];
-    result.elements.forEach((obj) => {
-      if (obj.type == "way") {
-        wayNodes = [];
-        obj.nodes.forEach((node_id) => {
-          if (node_id in nodes) {
-            wayNodes.push([nodes[node_id].lat, nodes[node_id].lon]);
-          }
-        })
-        paths[obj.id] = { nodes: wayNodes, tags: obj.tags, };
+  }
+  /**
+ *
+ */
+  function updateVolcanoes() {
+    if (bounds === null || !showVolcanoes) return;
+    overpassService.getVolcanoes(bounds, bounds.minVolcanoElevation).then((result) => {
+      if (checkMaxSize(result, 'Volcanoes')) {
+        setVolcanoPoints(result.elements);
+      } else {
+        setVolcanoPoints([]);
       }
     });
-    return paths;
   }
-
-  //   locationFound = (e) => {
-  //     console.log("accuracy: ", e.accuracy)
-  //     this.setState(()=> ({accuracy: e.accuracy, lat: e.latlng.lat, lng: e.latlng.lng }));
-  // }
-
-  // locationError = (e) => {
-  //   alert(e.message);
-  // }
-
-
-
-  handleMapChange = () => {
-    let bounds = this.refs.map.leafletElement.getBounds();
-    if (this.state.showMountains) {
-      overpassService.getMountains(bounds, this.state.minMountainElevation).then(result => {
-        this.setState(() => {
-          return { bounds: bounds, mountains: result.elements };
-        })
-      });
-    }
-    if (this.state.showVolcanoes) {
-      overpassService.getVolcanoes(bounds, this.state.minVolcanoElevation).then(result => {
-        this.setState(() => {
-          // console.log("volcanoes result: ", result);
-          return { bounds: bounds, volcanoes: result.elements };
-        })
-      });
-    }
-
-    if (Object.values(this.state.showSacScale).some((val) => (val)) || this.state.showNoSacScale) {
-      overpassService.getPaths(bounds, this.state.showSacScale, this.state.showNoSacScale).then(result => {
-        let paths = this.overpassWayConverter(result);
-        this.setState(() => {
-          return { bounds: bounds, paths: paths };
-        })
-      });
-    }
-
-    if (this.state.showCycleRoutes) {
-      overpassService.getCycleRoutes(bounds).then(result => {
-        let paths = this.overpassWayConverter(result);
-        this.setState(() => {
-          return { bounds: bounds, cycleRoutes: paths };
-        })
-      });
-    }
-
-    if (this.state.showMTBRoutes) {
-      overpassService.getMTBRoutes(bounds).then(result => {
-        let paths = this.overpassWayConverter(result);
-        this.setState(() => {
-          return { bounds: bounds, MTBRoutes: paths };
-        })
-      });
-    }
-  };
-
-  render() {
-    if (this.state.showMountains) {
-      var mountains = this.state.mountains.map((element) => {
-        return (<CircleMarker center={[element.lat, element.lon]}
-          color="grey" radius={4}
-          onClick={(event) => {
-            let location = event.latlng;
-            this.setState(() => {
-              return { showPopup: true, popupLocation: location, popupContent: element.tags }
-            })
-          }}
-        />)
-      })
-    } else {
-      var mountains = "";
-    }
-
-    if (this.state.showVolcanoes) {
-      var volcanoes = this.state.volcanoes.map((element) => {
-        return (<CircleMarker center={[element.lat, element.lon]}
-          color={red[500]} radius={4}
-          onClick={(event) => {
-            let location = event.latlng;
-            this.setState(() => {
-              return { showPopup: true, popupLocation: location, popupContent: element.tags }
-            })
-          }}
-
-        />);
-      })
-    } else {
-      var volcanoes = "";
-    }
-
-    if (Object.values(this.state.showSacScale).some((val) => (val)) || this.state.showNoSacScale) {
-      var paths = Object.keys(this.state.paths).map((key) => {
-        var color;
-        if (!("sac_scale" in this.state.paths[key].tags)) {
-          color = this.pathColours[6];
+  /**
+ *
+ */
+  function updateBikePaths() {
+    if (Object.values(bikePathTypes).some((val) => val.show) && bounds !== null) {
+      overpassService.getBikePaths(bounds, bikePathTypes).then((result) => {
+        if (checkMaxSize(result, 'Biking')) {
+          const paths = overpassWayConverter(result);
+          setBikePaths(paths);
         } else {
-          var index = this.sacScale.indexOf(this.state.paths[key].tags['sac_scale']);
-          color = this.pathColours[index];
+          setBikePaths({});
         }
-        return (<Polyline positions={this.state.paths[key].nodes}
-          color={color}
-          weight={5}
-          onClick={(event) => {
-            // console.log(event.latlng)
-            let location = event.latlng;
-            this.setState(() => {
-              return { showPopup: true, popupLocation: location, popupContent: this.state.paths[key].tags }
-            });
-          }}
-        />);
-      })
+      }).catch((error) => console.log(error));
     } else {
-      var paths = "";
+      setBikePaths({});
     }
-
-
-    if (this.state.showCycleRoutes) {
-      var cycleRoutes = Object.keys(this.state.cycleRoutes).map((key) => {
-        return (<Polyline positions={this.state.cycleRoutes[key].nodes}
-          color={this.cycleRoutesColour}
-          weight={5}
-          onClick={(event) => {
-            let location = event.latlng;
-            this.setState(() => {
-              return { showPopup: true, popupLocation: location, popupContent: this.state.cycleRoutes[key].tags };
-            })
-          }}
-        />);
-      })
-    } else {
-      var cycleRoutes = "";
-    }
-
-    if (this.state.showMTBRoutes) {
-      var MTBRoutes = Object.keys(this.state.MTBRoutes).map((key) => {
-        return (<Polyline positions={this.state.MTBRoutes[key].nodes}
-          color={this.MTBRoutesColour}
-          weight={5}
-          onClick={(event) => {
-            let location = event.latlng;
-            this.setState(() => {
-              return { showPopup: true, popupLocation: location, popupContent: this.state.MTBRoutes[key].tags }
-            })
-          }}
-        />)
+  }
+  /**
+ *
+ */
+  function updateHikingPaths() {
+    if (Object.values(hikingPathTypes).some((val) => val.show) && bounds !== null) {
+      overpassService.getHikingPaths(bounds, hikingPathTypes).then((result) => {
+        if (checkMaxSize(result, 'Hiking')) {
+          const paths = overpassWayConverter(result);
+          setHikingPaths(paths);
+        } else {
+          setHikingPaths({});
+        }
       });
     } else {
-      var MTBRoutes = "";
+      // console.log("No Hiking Paths selected");
+      setHikingPaths({});
     }
+  }
 
-    if (this.state.showRightClickPopup) {
-      var decimals = Math.floor(Math.log10(360.0 / Math.pow(2, this.state.zoom) / 256)) * -1; // the 2 was added just by testing
-      if (decimals < 0) {
-        decimals = 0;
-      }
-      var righClickPopup = <Popup className="request-popup" position={this.state.rightClickPopupLocation}
-
-        onClose={() => {
-          this.setState({ showRightClickPopup: false, rightClickPopupElevation: "" })
-        }}>
-        <div style={popupContent}>
-          <div style={popupHead}>
-            What is here?
-        </div>
-          <span style={popupText}>
-            <Typography> Coordinates: {this.state.rightClickPopupLocation.lat.toFixed(decimals)}, {this.state.rightClickPopupLocation.lng.toFixed(decimals)}
-            </Typography>
-            <Typography> Elevation: {this.state.rightClickPopupElevation} m
-            </Typography>
-          </span>
-        </div>
-      </Popup>
-    } else {
-      var rightClickPopup = "";
-    }
-
-
-    if (this.state.showPopup) {
-      var noinfo = true;
-      var content = Object.keys(this.state.popupContent).map((key) => {
-        // if (key != "name" && key != "sac_scale" && key != "highway" &&) {
-        if (!(["name", "sac_scale", "highway", "natural"]).includes(key) && key.match(/^name:/g) == null) {
-          noinfo = false;
-          let parsed_key = key.replace(/[:_]/g, ' ');
-          let units = ""
-          if (parsed_key === "ele") {
-            parsed_key = "elevation";
-            units = "m";
-
+  return (
+    <>
+      <MapContainer zoom={zoom} center={mapCenter}
+        style={{width: '100%', height: '60vh'}}>
+        <MapEventHandler setZoom={setZoom}
+          bounds={bounds}
+          setBounds={setBounds}
+          updateMountains={updateMountains}
+          showMountains={showMountains}
+          updateVolcanoes={updateVolcanoes}
+          showVolcanoes={showVolcanoes}
+          updateHikingPaths={updateHikingPaths}
+          updateBikePaths={updateBikePaths} />
+        <DeviceMarker setDeviceLocation={setDeviceLocation}
+          deviceLocation={deviceLocation}
+          setMapCenter={setMapCenter}
+          setDeviceLocationAccuracy={setDeviceLocationAccuracy}
+          setDeviceFound={setDeviceFound}
+          deviceLocationAccuracy={deviceLocationAccuracy}
+          setShowPopup={setShowPopup}
+          setPopupTags={setPopupTags} />
+        <MapLayer
+          attribution='<a href="http://osm.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          opacity={OSMOpacity / 100}
+          show={showOSM} />
+        <MapLayer
+          attribution='<a href="https://www.mapzen.com/terms/">OpenTopoMap</a>'
+          url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png" opacity={OTMOpacity / 100}
+          show={showOTM} />
+        <MapLayer
+          attribution='<a href="https://www.mapzen.com/rights">Mapzen</a>'
+          url="https://s3.amazonaws.com/elevation-tiles-prod/normal/{z}/{x}/{y}.png" opacity={elevationOpacity / 100}
+          show={showElevation} />
+        <PointsWithElevation color={'grey'}
+          show={showMountains}
+          points={mountainPoints}
+          setShowPopup={setShowPopup}
+          setPopupLocation={setPopupLocation}
+          setPopupTitle={setPopupTitle}
+          setPopupTags={setPopupTags} />
+        <PointsWithElevation color={'red'}
+          show={showVolcanoes}
+          points={volcanoPoints}
+          setShowPopup={setShowPopup}
+          setPopupLocation={setPopupLocation}
+          setPopupTitle={setPopupTitle}
+          setPopupTags={setPopupTags} />
+        <Paths key={1} paths={hikingPaths} pathTypes={hikingPathTypes}
+          setShowPopup={setShowPopup}
+          setPopupLocation={setPopupLocation}
+          setPopupTitle={setPopupTitle}
+          setPopupTags={setPopupTags}
+          setHighlightedPathID={setHighlightedPathID}
+          highlightedPathID={highlightedPathID} />
+        <Paths key={2} paths={bikePaths} pathTypes={bikePathTypes}
+          setShowPopup={setShowPopup}
+          setPopupLocation={setPopupLocation}
+          setPopupTitle={setPopupTitle}
+          setPopupTags={setPopupTags}
+          setHighlightedPathID={setHighlightedPathID}
+          highlightedPathID={highlightedPathID} />
+        <InfoPopup show={showPopup} setShow={setShowPopup}
+          tags={popupTags} title={popupTitle} location={popupLocation} />
+      </MapContainer>
+      <Box mt={2}>
+        {Object.keys(dataSizeWarnings).map((key) => {
+          if (dataSizeWarnings[key] == '') {
+            return null;
+          } else {
+            return (
+              <Alert key={key} variant="outlined" severity="warning">
+                {dataSizeWarnings[key]}
+              </Alert>
+            );
           }
+        })}
+      </Box>
+      <Box mt={3}>
+        <Paper elevation={3}>
+          <Grid container spacing={3}>
+            <Grid item md={4} sm={6} xs={12}>
+              <MapLayerController title={'OpenTopoMaps'}
+                opacity={OTMOpacity}
+                setOpacity={setOTMOpacity}
+                showLayer={showOTM}
+                setShowLayer={setShowOTM}
+                zoom={zoom}
+                maxZoom={17} />
+            </Grid>
+            <Grid item md={4} sm={6} xs={12}>
+              <MapLayerController title={'OpenStreetMaps'}
+                opacity={OSMOpacity}
+                setOpacity={setOSMOpacity}
+                showLayer={showOSM}
+                setShowLayer={setShowOSM}
+                zoom={zoom}
+                maxZoom={19} />
+            </Grid>
+            <Grid item md={4} sm={6} xs={12}>
+              <MapLayerController title={'Elevation'}
+                opacity={elevationOpacity}
+                setOpacity={setElevationOpacity}
+                showLayer={showElevation}
+                setShowLayer={setShowElevation}
+                zoom={zoom}
+                maxZoom={15} />
+            </Grid>
+          </Grid>
+        </Paper>
+        <Paper>
+          <Grid container spacing={3}>
+            <Grid item xs={6}>
+              <PointsWithElevationController title={'Mountains'}
+                setShow={setShowMountains}
+                show={showMountains}
+                setMinElevation={setMinMountainElevation}
+                minElevation={minMountainElevation}
+                updatePoints={updateMountains} />
+            </Grid>
+            <Grid item xs={6}>
+              <PointsWithElevationController title={'Volcanoes'}
+                setShow={setShowVolcanoes}
+                show={showVolcanoes}
+                setMinElevation={setMinVolcanoElevation}
+                minElevation={minVolcanoElevation}
+                updatePoints={updateVolcanoes} />
+            </Grid>
+          </Grid>
+        </Paper>
 
-          return <><b>{parsed_key}:&nbsp;</b>{this.state.popupContent[key]} {units}  </>
-        }
-      })
-      if (noinfo) {
-        content = <Typography>No Info</Typography>;
-      }
-
-
-      var popup = <Popup className="request-popup" position={this.state.popupLocation}
-        onClose={() => {
-          this.setState({ showPopup: false });
-        }}>
+        <Paper>
+          <Grid container spacing={3}>
+            <Grid item xs={6}>
+              <PathsController
+                title={'Hiking Paths'}
+                pathTypes={hikingPathTypes}
+                setPathTypes={setHikingPathTypes}
+                updatePaths={updateHikingPaths}
+                bounds={bounds}
+                note={'These trail catagories are from' +
+                ' the openstreetmap\'s sac_scale'} />
+            </Grid>
+            <Grid item xs={6}>
+              <PathsController
+                title={'Bike Paths'}
+                pathTypes={bikePathTypes}
+                setPathTypes={setBikePathTypes}
+                updatePaths={updateBikePaths}
+                bounds={bounds} />
+            </Grid>
+          </Grid>
+        </Paper>
+      </Box>
+    </>
+  );
+}
+/**
+ *
+ * @param {*} props
+ */
+function InfoPopup(props) {
+  if (!props.show) {
+    return null;
+  } else {
+    // console.log("rerending")
+    let noinfo = true;
+    let content =
+            Object.keys(props.tags).map((key) => {
+              if (!(['name', 'sac_scale', 'highway', 'natural']).includes(key) &&
+              key.match(/^name:/g) == null) {
+                noinfo = false;
+                let parsedKey = key.replace(/[:_]/g, ' ');
+                let units = '';
+                if (parsedKey === 'ele') {
+                  parsedKey = 'elevation';
+                  units = 'm';
+                }
+                return <Typography key={key}>
+                  <b>{parsedKey}:&nbsp;</b>
+                  {props.tags[key]} {units}
+                </Typography>;
+              }
+            });
+    if (noinfo) {
+      content = <Typography>No Info</Typography>;
+    }
+    return (
+      <Popup className="request-popup" position={props.location}
+        eventHandlers={{
+          close() {
+            props.setShowPopup(false);
+          },
+        }}
+        // onClose={() => { props.setShow(false); }}
+      >
         <div style={popupContent}>
           <div style={popupHead}>
-            {this.state.popupContent.name}
+            {props.title}
           </div>
           <span style={popupText}>
             {content}
           </span>
         </div>
       </Popup>
-    } else {
-      var popup = "";
-    }
-
-    if (this.state.locationAvailable) {
-      const latlng = { lat: this.state.deviceLat, lng: this.state.deviceLng };
-      var accuracyCircle = <Circle center={latlng} radius={this.state.locationAccuracy} />
-
-      if (this.state.directionAvailable) {
-        var thisIcon = new Icon({
-          iconUrl: locationArrow,
-          iconAnchor: new Point(10, 15),
-          iconSize: [20, 30],
-          shadowSize: [5, 10],
-          iconAnchor: [10, 15],
-        });
-        var locationMarker = <RotatedMarker position={latlng} icon={thisIcon} rotationAngle={this.state.direction} />
-
-      } else {
-        var thisIcon = new Icon({
-          iconUrl: locationIcon,
-          iconAnchor: new Point(10, 15),
-          iconSize: [20, 30],
-          shadowSize: [5, 10],
-          iconAnchor: [10, 30],
-        });
-
-        var locationMarker = <Marker position={latlng} icon={thisIcon} />
-
-      }
-
-    } else {
-      var accuracyCircle = ""
-      var locationMarker = ""
-    }
-
-    if (this.state.showOpenStreetTiles) {
-      var openStreetTiles = <TileLayer
-        attribution='<a href="http://osm.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" opacity={this.state.openStreetOpacity / 100}
-      />
-    } else {
-      var openStreetTiles = "";
-    }
-
-    if (this.state.showOpenTopoTiles && this.state.zoom <= 17) {
-      var openTopoTiles = <TileLayer
-        attribution='<a href="https://www.mapzen.com/terms/">OpenTopoMap</a>'
-        url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png" opacity={this.state.openTopoOpacity / 100}
-      />
-
-    } else {
-      var openTopoTiles = "";
-    }
-
-    if (this.state.showElevationTiles && this.state.zoom <= 15) {
-      var elevationTiles = <TileLayer
-        attribution='<a href="https://www.mapzen.com/rights">Mapzen</a>'
-        url="https://s3.amazonaws.com/elevation-tiles-prod/normal/{z}/{x}/{y}.png" opacity={this.state.elevationTileOpacity / 100}
-      />
-    } else {
-      var elevationTiles = "";
-    }
-
-    if (this.state.zoom <= 17) {
-      var topoMapsUnavailableMessage = ""
-    } else {
-      var topoMapsUnavailableMessage = <Tooltip title="Unavailable at this zoom">
-        {/* <IconButton> */}
-        <WarningIcon style={{ color: "orange" }} />
-        {/* </IconButton> */}
-      </Tooltip>
-    }
-
-    if (this.state.zoom <= 15) {
-      var elevationMapsUnavailableMessage = ""
-    } else {
-      var elevationMapsUnavailableMessage = <Tooltip title="Unavailable at this zoom">
-        {/* <IconButton> */}
-        <WarningIcon style={{ color: "orange" }} />
-        {/* </IconButton> */}
-      </Tooltip>
-    }
-
-
-    return (
-      <>
-        <Map ref='map' onmoveend={this.handleMapChange}
-          center={[this.state.lat, this.state.lng]}
-          // onlocationfound={this.locationFound}
-          // onlocationerror={this.locationError}
-          zoom={this.state.zoom}
-          onzoomend={() => {
-            this.setState({ zoom: this.refs.map.leafletElement.getZoom() })
-          }}
-          maxZoom={19}
-          style={{ width: '100%', height: '60vh' }}
-          oncontextmenu={(event) => {
-            // console.log(event.layerPoint);
-            this.setState({ rightClickPopupLocation: event.latlng, showRightClickPopup: true })
-            overpassService.getElevation(event.latlng, this.state.zoom).then((elevation) => {
-              this.setState({ rightClickPopupElevation: elevation })
-            });
-          }}
-        >
-          {mountains}
-          {volcanoes}
-          {paths}
-          {cycleRoutes}
-          {MTBRoutes}
-          {popup}
-          {righClickPopup}
-          {openStreetTiles}
-          {openTopoTiles}
-          {elevationTiles}
-          {accuracyCircle}
-          {locationMarker}
-
-        </Map>
-        <Box mt={3}>
-          <Paper elevation={3}>
-            <Grid container spacing={3}>
-              <Grid item md={4} sm={6} xs={12}>
-                <FormGroup row>
-                  <Box ml={2}><Typography>OpenStreetMaps Opacity</Typography>
-                  </Box>
-                  <GreenSwitch checked={this.state.showOpenStreetTiles}
-                    onClick={() => {
-                      this.setState((prevstate) => {
-                        return { showOpenStreetTiles: !(prevstate.showOpenStreetTiles) }
-                      })
-                    }}></GreenSwitch>
-                </FormGroup>
-                <Slider disabled={!this.state.showOpenStreetTiles} value={this.state.openStreetOpacity} onChange={(event, newValue) => {
-                  this.setState({ openStreetOpacity: newValue })
-                }}
-                  aria-labelledby="continuous-slider" />
-              </Grid>
-
-              <Grid item md={4} sm={6} xs={12}>
-                <FormGroup row>
-                  <Box ml={2}><Typography>
-                    OpenTopoMaps Opacity</Typography></Box>
-                  <GreenSwitch checked={this.state.showOpenTopoTiles} onClick={() => {
-                    this.setState((prevstate) => {
-                      return { showOpenTopoTiles: !(prevstate.showOpenTopoTiles) }
-                    });
-                  }}> </GreenSwitch> {topoMapsUnavailableMessage}
-                </FormGroup>
-                <Slider disabled={!this.state.showOpenTopoTiles} value={this.state.openTopoOpacity} onChange={(event, newValue) => {
-                  this.setState({ openTopoOpacity: newValue });
-                }}
-                  aria-labelledby="continuous-slider" />
-              </Grid>
-
-              <Grid item md={4} xs={12}>
-                <FormGroup row>
-                  <Box ml={2}><Typography id="discrete-slider" gutterBottom>
-                    Mapzen Elevation Opacity</Typography></Box>
-                  <GreenSwitch checked={this.state.showElevationTiles} onClick={() => {
-                    this.setState((prevstate) => {
-                      return { showElevationTiles: !(prevstate.showElevationTiles) }
-                    });
-                  }}> </GreenSwitch> {elevationMapsUnavailableMessage}
-                </FormGroup>
-                <Slider disabled={!this.state.showElevationTiles} value={this.state.elevationTileOpacity} onChange={(event, newValue) => {
-                  this.setState({ elevationTileOpacity: newValue })
-                }}
-                  aria-labelledby="continuous-slider" />
-              </Grid>
-            </Grid>
-          </Paper>
-
-          <Paper>
-            <Grid container spacing={3}>
-              <Grid item xs={6}>
-                <ExpansionPanel>
-                  <ExpansionPanelSummary
-                    expandIcon={<ExpandMoreIcon />}
-                  >
-                    <Typography>Mountains</Typography>
-                  </ExpansionPanelSummary>
-                  <ExpansionPanelDetails>
-                    <Grid container spacing={3}>
-                      <Grid item md={3}>
-                        <Switch checked={this.state.showMountains} onClick={() => {
-                          this.setState((prevstate) => {
-                            return { showMountains: !(prevstate.showMountains) }
-                          }, () => { this.handleMapChange() })
-                        }} />
-                      </Grid>
-                      <Grid item md={9}>
-                        <Typography>Min. Elevation: {this.state.minMountainElevation} m</Typography>
-                        <Slider disabled={!this.state.showMountains}
-                          value={this.state.minMountainElevation} min={0} max={9000} onChange={(event, newValue) => {
-                            this.setState({ minMountainElevation: newValue })
-                          }}
-                          onChangeCommitted={() => {
-                            this.handleMapChange();
-                          }}
-                          aria-labelledby="continuous-slider" />
-                      </Grid>
-                    </Grid>
-                  </ExpansionPanelDetails>
-                </ExpansionPanel>
-              </Grid>
-              <Grid item xs={6}>
-                <ExpansionPanel>
-                  <ExpansionPanelSummary
-                    expandIcon={<ExpandMoreIcon />}
-                  >
-                    <Typography>Volcanoes</Typography>
-                  </ExpansionPanelSummary>
-                  <ExpansionPanelDetails>
-                    <Grid container spacing={3}>
-                      <Grid item md={3}>
-                        <RedSwitch checked={this.state.showVolcanoes} onClick={() => {
-                          this.setState((prevstate) => {
-                            return { showVolcanoes: !(prevstate.showVolcanoes) }
-                          }, () => { this.handleMapChange() });
-                        }} />
-                      </Grid>
-                      <Grid item md={9}>
-                        <Typography>{this.state.minVolcanoElevation > 0 ? "Min. Elevation: " + this.state.minVolcanoElevation + "m" : "All Volcanoes"}
-                        </Typography>
-                        <Slider disabled={!this.state.showVolcanoes}
-                          value={this.state.minVolcanoElevation} min={0} max={7000} onChange={(event, newValue) => {
-                            this.setState({ minVolcanoElevation: newValue })
-                          }}
-                          onChangeCommitted={() => {
-                            this.handleMapChange();
-                          }}
-                          aria-labelledby="continuous-slider" />
-                      </Grid>
-                    </Grid>
-                  </ExpansionPanelDetails>
-                </ExpansionPanel>
-              </Grid>
-            </Grid>
-          </Paper>
-
-          <Paper>
-            <Grid container spacing={3}>
-              <Grid item xs={6}>
-                <ExpansionPanel>
-                  <ExpansionPanelSummary
-                    expandIcon={<ExpandMoreIcon />}
-                  >
-                    <Typography>Hiking Paths</Typography>
-                  </ExpansionPanelSummary>
-                  <ExpansionPanelDetails>
-
-                    <Grid container spacing={3}>
-                      <Grid item xs={12}>
-                        <FormGroup row>
-                          {this.sacScale.map((sacScale, index) => {
-                            let words = sacScale.replace(/_/g, " ");
-                            const capitalize = words.split(' ').map(w => w.substring(0, 1).toUpperCase() + w.substring(1)).join(' ');
-                            return (<FormControlLabel control={<Checkbox
-                              style={{
-                                color: this.state.showSacScale[sacScale] ? this.pathColours[index] : theme.secondary
-                              }}
-                              checked={this.state.showSacScale[sacScale]}
-                              onChange={() => {
-                                this.setState((prevstate) => {
-                                  prevstate.showSacScale[sacScale] = !prevstate.showSacScale[sacScale];
-                                  return { showSacScale: prevstate.showSacScale };
-                                }, () => { this.handleMapChange(); })
-                              }
-
-                              } />} label={capitalize} />
-                            )
-                          })}
-
-                          <FormControlLabel control={<Checkbox checked={this.state.showNoSacScale}
-                            onChange={() => {
-                              this.setState((prevstate) => ({ showNoSacScale: !prevstate.showNoSacScale }), () => { this.handleMapChange() })
-                            }}
-                            style={{
-                              color: this.state.showNoSacScale ? this.pathColours[6] : theme.secondary
-                            }}
-                          />}
-                            label="No SAC Scale" />
-                        </FormGroup>
-                      </Grid>
-                      <Grid item xs={12}>
-
-                        <Typography>These trail catagories are from the openstreetmap's sac_scale</Typography>
-                      </Grid>
-                    </Grid>
-                  </ExpansionPanelDetails>
-                </ExpansionPanel>
-              </Grid>
-              <Grid item xs={6}>
-                <ExpansionPanel>
-                  <ExpansionPanelSummary
-                    expandIcon={<ExpandMoreIcon />}
-                  >
-                    <Typography>Bicycle Paths</Typography>
-                  </ExpansionPanelSummary>
-                  <ExpansionPanelDetails>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12}>
-                        <FormGroup row>
-                          <FormControlLabel control={<Checkbox checked={this.state.showCycleRoutes}
-                            onChange={() => {
-                              this.setState((prevstate) => ({ showCycleRoutes: !prevstate.showCycleRoutes }), () => { this.handleMapChange() })
-                            }}
-                            style={{
-                              color: this.state.showCycleRoutes ? this.cycleRoutesColour : theme.secondary
-                            }}
-                          />}
-                            label="Bicycle Routes" />
-
-                          <FormControlLabel control={<Checkbox checked={this.state.showMTBRoutes}
-                            onChange={() => {
-                              this.setState((prevstate) => ({ showMTBRoutes: !prevstate.showMTBRoutes }), () => { this.handleMapChange() })
-                            }}
-                            style={{
-                              color: this.state.showMTBRoutes ? this.MTBRoutesColour : theme.secondary
-                            }}
-                          />}
-                            label="Mountain Bike Routes" />
-                        </FormGroup>
-                      </Grid>
-                    </Grid>
-                  </ExpansionPanelDetails>
-                </ExpansionPanel>
-              </Grid>
-            </Grid>
-          </Paper>
-        </Box>
-      </>
-    )
+    );
   }
+}
+/**
+ *
+ * @param {*} props
+ */
+function MapEventHandler(props) {
+  useEffect(() => {
+    // console.log("bounds", props.bounds)
+    props.updateMountains();
+    props.updateVolcanoes();
+    props.updateHikingPaths();
+    props.updateBikePaths();
+  }, [props.bounds]);
+
+  const map = useMapEvents({
+    moveend: () => {
+      const bounds = map.getBounds();
+      props.setBounds(bounds);
+      props.setZoom(map.getZoom());
+      // console.log("move end");
+    },
+  });
+  return null;
 }
 
 export default MyMap;

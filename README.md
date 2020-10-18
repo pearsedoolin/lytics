@@ -10,5 +10,3 @@ The purpose of the [mapping page](https://lytics.ca/maps) is to make an easy to 
 ## Stats
 
 The data for the [statistics plotter](https://lytics.ca/stats) was downloaded from [open.canada.ca](https://open.canada.ca) it was then restructured using Pandas and stored in a PostreSQL database.
-
->

@@ -97,8 +97,8 @@ class Dashboard extends Component {
           <Divider />
           <List>
             {['Statistics Plotter', 'Maps'].map((text, index) => (
-              <RouterLink to={index % 2 === 0 ? "/stats" : "/maps"} onClick={() => this.changeWindow(text)} style={{ textDecoration: 'none' }}>
-                <ListItem button onClick={() => this.changeWindow(text)}>
+              <RouterLink key={index} to={index % 2 === 0 ? "/stats" : "/maps"} onClick={() => this.changeWindow(text)} style={{ textDecoration: 'none' }}>
+                <ListItem key={index} button onClick={() => this.changeWindow(text)}>
                   <ListItemIcon>{index % 2 === 0 ? <ShowChartIcon /> : <Map />}</ListItemIcon>
                   <ListItemText primary={text} style={{color: theme.palette.text.primary}}/>
                 </ListItem>

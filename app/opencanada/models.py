@@ -50,21 +50,7 @@ class HousingStarts(models.Model):
 
     class Meta:
         ordering = ['date']
-# HOUSING_TYPE_CHOICES = ( 
-#     ("Apt", "Aparment"),
-#     ("Sng", "Single Detached") 
-# ) 
 
-# class HousingStartData(models.Model):
-#     starts = models.PositiveIntegerField()
-#     province = models.ForeignKey(Province, on_delete=models.CASCADE)
-#     date = models.DateField()
-
-
-#     housing_start_type = models.CharField(
-#         choices=HOUSING_TYPE_CHOICES,
-#          max_length = 4
-#          )
 
     
     
