@@ -10,3 +10,12 @@ The purpose of the [mapping page](https://lytics.ca/maps) is to make an easy to 
 ## Stats
 
 The data for the [statistics plotter](https://lytics.ca/stats) was downloaded from [open.canada.ca](https://open.canada.ca) it was then restructured using Pandas and stored in a PostreSQL database.
+
+
+## Running
+
+To run the app use `docker-compose -f docker-compose.live.yml up`.
+
+If there is an error it could be for one of these reasons:
+
+1. NGINX could already be running on your machine and using a port that docker needs. Check its status using `sudo servince nginx status`
